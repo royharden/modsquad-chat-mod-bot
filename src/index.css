@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scrollbar-color: #323b46 transparent;
+  }
+  body {
+    @apply bg-studio-950 text-studio-100 antialiased;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-studio-600;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-studio-700/70 bg-studio-900;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-question-500 text-studio-950 hover:bg-question-400;
+  }
+  .btn-ghost {
+    @apply btn border border-studio-600 bg-studio-800 text-studio-200 hover:border-studio-500 hover:bg-studio-700;
+  }
+  .btn-danger {
+    @apply btn bg-toxic-500 text-white hover:bg-toxic-400;
+  }
+}
+
+@keyframes fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fadeup {
+  animation: fadeup 0.18s ease-out;
+}

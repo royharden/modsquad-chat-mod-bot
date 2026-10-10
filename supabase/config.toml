@@ -1,0 +1,7 @@
+project_id = "modsquad"
+
+[functions.jev-moderate]
+verify_jwt = false
+
+[functions.write-recap]
+verify_jwt = false
