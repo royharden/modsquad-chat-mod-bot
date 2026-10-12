@@ -10,10 +10,24 @@ export interface ModeratePayload {
 
 export class DailyCapError extends Error {}
 
+// Reads the `error` field from a non-2xx Edge Function response, if any.
+async function errorMessageFrom(context: unknown): Promise<string | null> {
+  if (!(context instanceof Response)) return null;
+  try {
+    const body: unknown = await context.clone().json();
+    const msg = (body as { error?: unknown } | null)?.error;
+    return typeof msg === "string" && msg ? msg : null;
+  } catch {
+    return null;
+  }
+}
+
+// At most 2 attempts; retries only network errors and 529. Never retries the
+// daily cap (429) or a fail-closed 503.
 async function invokeWithRetry<T>(
   fn: string,
   body: unknown,
-  tries = 3,
+  tries = 2,
 ): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < tries; attempt++) {
@@ -24,17 +38,15 @@ async function invokeWithRetry<T>(
       body: body as Record<string, unknown>,
     });
     if (!error) return data as T;
-    const status =
-      (error as { status?: number; context?: Response }).status ??
-      (error as { context?: Response }).context?.status;
+    const context = (error as { context?: unknown }).context;
+    const status = context instanceof Response ? context.status : undefined;
     if (status === 429) {
       const msg =
-        (data as { error?: string } | null)?.error ??
-        error.message ??
+        (await errorMessageFrom(context)) ??
         "Demo daily limit reached — try Offline replay";
       throw new DailyCapError(msg);
     }
-    if (status && [429, 500, 502, 503, 504, 529].includes(status)) {
+    if (error.name === "FunctionsFetchError" || status === 529) {
       lastErr = error;
       continue;
     }

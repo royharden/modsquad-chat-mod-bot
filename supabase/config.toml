@@ -1,7 +1,18 @@
 project_id = "modsquad"
 
+# Every Edge Function requires a valid JWT. The browser calls them through
+# supabase.functions.invoke, which sends the anon key as
+# `Authorization: Bearer <anon key>` plus the `apikey` header. Any cron or
+# scheduled job that calls a function must send the same Authorization header.
+
 [functions.jev-moderate]
-verify_jwt = false
+verify_jwt = true
 
 [functions.write-recap]
-verify_jwt = false
+verify_jwt = true
+
+[functions.save-report]
+verify_jwt = true
+
+[functions.delete-reports]
+verify_jwt = true

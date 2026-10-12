@@ -11,7 +11,7 @@ import { useModerationEngine } from "../hooks/useModerationEngine";
 import { usePlayback, useStreamContext, usePolicy, type SourceMode } from "../hooks/usePlayback";
 import { makeRecordedLookup, STREAM_KEYS } from "../lib/offline";
 import { getRecentContext, parseChatLog } from "../lib/paste";
-import { supabase } from "../lib/supabase";
+import { deletePastedReports } from "../lib/reports";
 import type { StreamContext, ModeratedMessage, ChatMessage } from "../lib/types";
 import { Trash2, Settings2 } from "lucide-react";
 
@@ -78,8 +78,9 @@ export function Studio() {
 
   const deletePastedData = useCallback(async () => {
     if (source.kind !== "paste") return;
-    // Best effort: the demo DB stores pasted sessions only after saving.
-    await supabase.from("sessions").delete().eq("source", "paste");
+    // Best effort: the demo DB stores pasted sessions only after saving; this
+    // deletes the pasted-chat reports this browser saved (via delete-reports).
+    await deletePastedReports().catch(() => {});
     setSource({ kind: "simulator", stream: "Elden-style boss fight" });
   }, [source]);
 
@@ -155,6 +156,7 @@ export function Studio() {
             messages={engine.moderated}
             streamContext={streamContext}
             writerMode={writerMode}
+            pasted={source.kind === "paste"}
             saveState={saveState}
             setSaveState={setSaveState}
           />

@@ -5,26 +5,20 @@ import type { ModeratedMessage, StreamContext } from "../lib/types";
 import { chatHealthSeries, groupQuestions } from "../lib/policy";
 import { effectiveAction } from "./ChatColumn";
 import { requestRecap, type Recap } from "../lib/jev";
-import { supabase } from "../lib/supabase";
-
-function makeSlug(): string {
-  const words = [
-    "chat", "stream", "queue", "health", "recap", "spoiler", "highlight",
-  ];
-  const w = words[Math.floor(Math.random() * words.length)];
-  return `${w}-${Math.random().toString(36).slice(2, 8)}`;
-}
+import { createReport } from "../lib/reports";
 
 export function RecapSection({
   messages,
   streamContext,
   writerMode,
+  pasted,
   saveState,
   setSaveState,
 }: {
   messages: ModeratedMessage[];
   streamContext: StreamContext;
   writerMode: "llm" | "mock";
+  pasted: boolean;
   saveState: "idle" | "saving" | "saved" | "error";
   setSaveState: (s: "idle" | "saving" | "saved" | "error") => void;
 }) {
@@ -85,24 +79,23 @@ export function RecapSection({
   const saveReport = useCallback(async () => {
     if (!recap) return;
     setSaveState("saving");
-    const newSlug = makeSlug();
-    const { error: err } = await supabase.from("sessions").insert({
-      slug: newSlug,
-      source:
-        streamContext.title || "simulation",
-      stream_context: streamContext,
-      policy: {},
-      stats: aggregates.stats,
-      recap,
-      writer_mode: writerMode,
-    });
-    if (err) {
+    try {
+      const newSlug = await createReport(
+        {
+          source: streamContext.title || "simulation",
+          stream_context: streamContext,
+          stats: aggregates.stats,
+          recap,
+          writer_mode: writerMode,
+        },
+        pasted,
+      );
+      setSlug(newSlug);
+      setSaveState("saved");
+    } catch {
       setSaveState("error");
-      return;
     }
-    setSlug(newSlug);
-    setSaveState("saved");
-  }, [recap, aggregates, streamContext, writerMode, setSaveState]);
+  }, [recap, aggregates, streamContext, writerMode, pasted, setSaveState]);
 
   const markdown = useMemo(() => {
     if (!recap) return "";

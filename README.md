@@ -46,10 +46,20 @@ the chat column, mod queue, or highlights.
 - **Usernames in fixtures are fake.** Pasted logs are stored only in this
   demo's database and can be deleted with one button.
 - **All keys stay server-side** in Supabase Edge Function secrets. Nothing
-  secret goes in the browser bundle.
-- **Daily cap.** Each Edge Function counts its calls in a `usage_counters`
-  table and returns a friendly 429 after **200 calls per day**. Offline replay
-  keeps working.
+  secret goes in the browser bundle. Functions read keys, URLs and model
+  names from env only, never from the request.
+- **Daily cap.** Every paid upstream request (each Jev/LLM call, retries
+  included) first increments a per-function counter through the
+  service-role-only `increment_usage` SQL function. After **200 calls per day**
+  (override with the `DAILY_CALL_LIMIT` secret) the function returns a friendly
+  429; if the counter can't be read it fails closed with 503. Offline replay
+  and the Mock writer keep working.
+- **Locked-down database.** The browser can only read `sessions` (for the
+  report page). Reports are saved and deleted by the `save-report` /
+  `delete-reports` Edge Functions; a pasted-chat report can only be deleted
+  from the browser that saved it (it holds that report's delete token).
+- **JWT required.** Every Edge Function has `verify_jwt = true`; the browser
+  calls them with `supabase.functions.invoke`, which sends the anon key.
 - **Fallback, clearly labeled.** If Jev is unreachable, a keyword fallback
   (link patterns, caps ratio, small blocklist, trailing "?") takes over and
   every message is labeled **"Fallback (not Jev)"**.
@@ -87,10 +97,16 @@ npm install
 supabase secrets set TYPESAFE_API_KEY=... OPENAI_API_KEY=... OPENAI_MODEL=gpt-6-luna
 # optional:
 supabase secrets set OPENAI_BASE_URL=https://your-proxy.example.com/v1
+supabase secrets set DAILY_CALL_LIMIT=200
 
-# Deploy the two Edge Functions:
+# Apply the database migrations:
+supabase db push
+
+# Deploy the Edge Functions (all use verify_jwt = true from config.toml):
 supabase functions deploy jev-moderate
 supabase functions deploy write-recap
+supabase functions deploy save-report
+supabase functions deploy delete-reports
 
 npm run dev
 ```
@@ -106,6 +122,7 @@ npm run dev
 | `OPENAI_API_KEY` | Edge Function secret | LLM key (write-recap); template text if missing |
 | `OPENAI_MODEL` | Edge Function secret | Model name, default `gpt-6-luna` |
 | `OPENAI_BASE_URL` | Edge Function secret | Optional; default `https://api.openai.com/v1` |
+| `DAILY_CALL_LIMIT` | Edge Function secret | Optional; per-function daily cap, default `200` (`0` blocks all calls) |
 | `VITE_SUPABASE_URL` | Browser `.env` | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Browser `.env` | Supabase anon key |
 
@@ -146,4 +163,6 @@ _Read-only end-of-stream report at `/r/:slug`._
 - **Uncertainty is surfaced, not resolved.** Borderline messages go to the mod
   queue; overrides are tracked as "mod disagreed with Jev" stats.
 - **Deno Edge Functions with strict CORS.** Every response (preflight,
-  success, error) carries the required header set.
+  success, error) carries the required header set. Request bodies, item
+  counts and field lengths are bounded (413/422) before any paid call, and
+  upstream error text is logged server-side, never returned to the browser.
