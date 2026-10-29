@@ -13,3 +13,17 @@ vitest.config.ts.timestamp-*.mjs
 vitest.config.mts.timestamp-*.mjs
 vitest.config.cts.timestamp-*.mjs
 dist/
+
+# Local credentials, archives, and generated artifacts
+.env.*
+!.env.example
+.creds/
+ArchiveManager-creds.txt
+*.pem
+*.key
+*.p12
+*.pfx
+*.zip
+.cache/
+.vite/
+coverage/
